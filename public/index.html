@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scraper Gambar Kiryuu</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        #imagesContainer {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+        .image-card {
+            position: relative;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .image-card:hover {
+            transform: translateY(-5px);
+        }
+        .image-preview {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+        .checkbox-container {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px;
+            border-radius: 4px;
+        }
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+        }
+        /* Loading */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image Scraper Kiryuu</h1>
+    <div class="input-group">
+        <input type="text" id="urlInput" placeholder="Masukkan URL website..." style="width: 300px; padding: 10px">
+        <button id="fetchBtn" style="padding: 10px 20px">Scrape</button>
+    </div>
+
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <div>Memproses...</div>
+    </div>
+
+    <div id="imagesContainer"></div>
+    <button id="downloadBtn" style="display: none; margin: 20px; padding: 10px 30px">Download Selected (ZIP)</button>
+
+    <!-- Modal -->
+    <div id="imageModal" class="modal">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+
+    <script>
+        let selectedImages = new Set();
+
+        // Scrape Handler
+        document.getElementById('fetchBtn').addEventListener('click', async () => {
+            const url = document.getElementById('urlInput').value;
+            if (!url) return alert('Masukkan URL terlebih dahulu!');
+            
+            showLoading();
+            try {
+                const response = await axios.get(`http://localhost:3000/scrape?url=${encodeURIComponent(url)}`);
+                renderImages(response.data.images);
+            } catch (error) {
+                alert('Gagal mengambil data: ' + error.message);
+            }
+            hideLoading();
+        });
+
+        // Download Handler
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            if (selectedImages.size === 0) return alert('Pilih gambar terlebih dahulu!');
+            
+            showLoading();
+            try {
+                const response = await axios.post('http://localhost:3000/download', {
+                    images: Array.from(selectedImages)
+                }, { responseType: 'blob' });
+
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', 'images.zip');
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            } catch (error) {
+                alert('Download gagal: ' + error.message);
+            }
+            hideLoading();
+        });
+
+        // Image Rendering
+        function renderImages(images) {
+            const container = document.getElementById('imagesContainer');
+            container.innerHTML = '';
+            
+            images.forEach(imgUrl => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                
+                card.innerHTML = `
+                    <div class="checkbox-container">
+                        <input type="checkbox" class="image-checkbox" data-url="${imgUrl}">
+                    </div>
+                    <img src="${imgUrl}" class="image-preview" onclick="openModal('${imgUrl}')">
+                `;
+                
+                const checkbox = card.querySelector('.image-checkbox');
+                checkbox.addEventListener('change', (e) => {
+                    e.target.checked ? 
+                        selectedImages.add(imgUrl) : 
+                        selectedImages.delete(imgUrl);
+                    updateDownloadButton();
+                });
+                
+                container.appendChild(card);
+            });
+            
+            document.getElementById('downloadBtn').style.display = images.length ? 'block' : 'none';
+        }
+
+        // Modal Functions
+        function openModal(url) {
+            document.getElementById('modalImage').src = url;
+            document.getElementById('imageModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+
+        // Helpers
+        function showLoading() {
+            document.getElementById('loading').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function updateDownloadButton() {
+            document.getElementById('downloadBtn').innerText = 
+                `Download Selected (${selectedImages.size})`;
+        }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            if (event.target === document.getElementById('imageModal')) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
