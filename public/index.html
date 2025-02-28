@@ -3,46 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scraper Gambar Kiryuu</title>
+    <title>Advanced Image Scraper</title>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
+        :root {
+            --primary: #2196F3;
+            --danger: #f44336;
+        }
+
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
+            margin: 0;
             padding: 20px;
+            background: #f5f5f5;
         }
-        #imagesContainer {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px auto;
+
+        .container {
             max-width: 1200px;
+            margin: 0 auto;
         }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .primary-btn {
+            background: var(--primary);
+            color: white;
+        }
+
+        .primary-btn:hover {
+            background: #1976D2;
+        }
+
+        .danger-btn {
+            background: var(--danger);
+            color: white;
+        }
+
+        #imageGrid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
         .image-card {
-            position: relative;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            background: white;
+            border-radius: 10px;
             overflow: hidden;
-            transition: transform 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: relative;
         }
-        .image-card:hover {
-            transform: translateY(-5px);
+
+        .image-checkbox {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 20px;
+            height: 20px;
+            z-index: 2;
         }
+
         .image-preview {
             width: 100%;
-            height: 150px;
+            height: 180px;
             object-fit: cover;
-            cursor: pointer;
+            cursor: zoom-in;
+            transition: transform 0.3s;
         }
-        .checkbox-container {
-            position: absolute;
-            top: 5px;
-            left: 5px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 5px;
-            border-radius: 4px;
+
+        .image-preview:hover {
+            transform: scale(1.05);
         }
-        /* Modal */
+
         .modal {
             display: none;
             position: fixed;
@@ -50,46 +110,70 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0,0,0,0.9);
             z-index: 1000;
             justify-content: center;
             align-items: center;
         }
+
         .modal-content {
             max-width: 90%;
             max-height: 90%;
-            position: relative;
+            border-radius: 10px;
         }
-        .modal-close {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            color: white;
-            font-size: 30px;
-            cursor: pointer;
-        }
-        /* Loading */
+
         .loading-overlay {
-            display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 999;
+            background: rgba(0,0,0,0.8);
+            display: none;
             justify-content: center;
             align-items: center;
             color: white;
-            font-size: 20px;
+            font-size: 24px;
+            z-index: 999;
+        }
+
+        .selection-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        #selectAllBtn {
+            background: #4CAF50;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        #selectAllBtn:hover {
+            background: #45a049;
         }
     </style>
 </head>
 <body>
-    <h1>Image Scraper Kiryuu</h1>
-    <div class="input-group">
-        <input type="text" id="urlInput" placeholder="Masukkan URL website..." style="width: 300px; padding: 10px">
-        <button id="fetchBtn" style="padding: 10px 20px">Scrape</button>
+    <div class="container">
+        <div class="header">
+            <h1>🖼️ Advanced Image Scraper</h1>
+            <div class="input-group">
+                <input type="text" id="urlInput" placeholder="Masukkan URL website...">
+                <button class="primary-btn" id="scrapeBtn">Scrape</button>
+            </div>
+            <div class="selection-controls">
+                <button class="primary-btn" id="selectAllBtn">Pilih Semua</button>
+                <span id="selectionCount">0 gambar terpilih</span>
+            </div>
+            <button class="danger-btn" id="downloadBtn" disabled>
+                🗄️ Download ZIP (<span id="count">0</span>)
+            </button>
+        </div>
+
+        <div id="imageGrid"></div>
     </div>
 
     <div class="loading-overlay" id="loading">
@@ -97,87 +181,139 @@
         <div>Memproses...</div>
     </div>
 
-    <div id="imagesContainer"></div>
-    <button id="downloadBtn" style="display: none; margin: 20px; padding: 10px 30px">Download Selected (ZIP)</button>
-
-    <!-- Modal -->
-    <div id="imageModal" class="modal">
-        <span class="modal-close" onclick="closeModal()">&times;</span>
+    <div class="modal" id="imageModal" onclick="closeModal()">
         <img class="modal-content" id="modalImage">
     </div>
 
     <script>
         let selectedImages = new Set();
+        let allImages = [];
 
-        // Scrape Handler
-        document.getElementById('fetchBtn').addEventListener('click', async () => {
-            const url = document.getElementById('urlInput').value;
+        document.getElementById('scrapeBtn').addEventListener('click', scrapeImages);
+        document.getElementById('selectAllBtn').addEventListener('click', toggleSelectAll);
+        document.getElementById('downloadBtn').addEventListener('click', downloadImages);
+
+        async function scrapeImages() {
+            const url = document.getElementById('urlInput').value.trim();
             if (!url) return alert('Masukkan URL terlebih dahulu!');
-            
+
             showLoading();
             try {
-                const response = await axios.get(`http://localhost:3000/scrape?url=${encodeURIComponent(url)}`);
-                renderImages(response.data.images);
+                const response = await axios.get(`/scrape?url=${encodeURIComponent(url)}`);
+                allImages = response.data.images;
+                renderImages(allImages);
+                updateUI();
             } catch (error) {
-                alert('Gagal mengambil data: ' + error.message);
+                alert('Gagal mengambil gambar: ' + error.message);
             }
             hideLoading();
-        });
+        }
 
-        // Download Handler
-        document.getElementById('downloadBtn').addEventListener('click', async () => {
-            if (selectedImages.size === 0) return alert('Pilih gambar terlebih dahulu!');
+        function toggleSelectAll() {
+            const allSelected = selectedImages.size === allImages.length;
+            
+            if (allSelected) {
+                selectedImages.clear();
+            } else {
+                allImages.forEach(img => selectedImages.add(img));
+            }
+            
+            updateCheckboxes();
+            updateUI();
+        }
+
+        function updateCheckboxes() {
+            document.querySelectorAll('.image-checkbox').forEach(checkbox => {
+                checkbox.checked = selectedImages.has(checkbox.dataset.url);
+            });
+        }
+
+        function updateUI() {
+            const count = selectedImages.size;
+            document.getElementById('count').textContent = count;
+            document.getElementById('selectionCount').textContent = 
+                `${count} gambar terpilih`;
+            document.getElementById('downloadBtn').disabled = count === 0;
+            document.getElementById('selectAllBtn').textContent = 
+                count === allImages.length ? 'Batal Pilih Semua' : 'Pilih Semua';
+        }
+
+        function renderImages(images) {
+            const grid = document.getElementById('imageGrid');
+            grid.innerHTML = '';
+            
+            images.forEach((imgUrl) => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                card.innerHTML = `
+                    <input 
+                        type="checkbox" 
+                        class="image-checkbox" 
+                        data-url="${imgUrl}"
+                        onchange="toggleImage('${imgUrl}')"
+                        ${selectedImages.has(imgUrl) ? 'checked' : ''}
+                    >
+                    <img 
+                        src="${imgUrl}" 
+                        class="image-preview" 
+                        loading="lazy"
+                        onerror="this.style.display='none'"
+                        onclick="openModal('${imgUrl}')"
+                    >
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function toggleImage(url) {
+            selectedImages.has(url) ? 
+                selectedImages.delete(url) : 
+                selectedImages.add(url);
+            updateUI();
+        }
+
+        async function downloadImages() {
+            if (selectedImages.size === 0) return;
             
             showLoading();
             try {
-                const response = await axios.post('http://localhost:3000/download', {
+                const response = await axios.post('/download', {
                     images: Array.from(selectedImages)
-                }, { responseType: 'blob' });
+                }, { 
+                    responseType: 'blob',
+                    validateStatus: (status) => status >= 200 && status < 500
+                });
 
-                const url = window.URL.createObjectURL(new Blob([response.data]));
+                if (response.status === 400) {
+                    try {
+                        const errorText = await response.data.text();
+                        const errorData = JSON.parse(errorText);
+                        const errorMessage = [
+                            errorData.error,
+                            ...(errorData.details || []).slice(0, 3)
+                        ].join('\n');
+                        alert(`Gagal mengunduh:\n${errorMessage}`);
+                        return;
+                    } catch {
+                        alert('Terjadi kesalahan tidak diketahui saat mengunduh');
+                    }
+                }
+
+                const blob = new Blob([response.data], { type: 'application/zip' });
                 const link = document.createElement('a');
-                link.href = url;
-                link.setAttribute('download', 'images.zip');
+                link.href = URL.createObjectURL(blob);
+                link.download = `images_${Date.now()}.zip`;
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
+                
             } catch (error) {
-                alert('Download gagal: ' + error.message);
+                alert('Gagal mengunduh: ' + (error.response?.data?.error || error.message));
+            } finally {
+                hideLoading();
             }
-            hideLoading();
-        });
-
-        // Image Rendering
-        function renderImages(images) {
-            const container = document.getElementById('imagesContainer');
-            container.innerHTML = '';
-            
-            images.forEach(imgUrl => {
-                const card = document.createElement('div');
-                card.className = 'image-card';
-                
-                card.innerHTML = `
-                    <div class="checkbox-container">
-                        <input type="checkbox" class="image-checkbox" data-url="${imgUrl}">
-                    </div>
-                    <img src="${imgUrl}" class="image-preview" onclick="openModal('${imgUrl}')">
-                `;
-                
-                const checkbox = card.querySelector('.image-checkbox');
-                checkbox.addEventListener('change', (e) => {
-                    e.target.checked ? 
-                        selectedImages.add(imgUrl) : 
-                        selectedImages.delete(imgUrl);
-                    updateDownloadButton();
-                });
-                
-                container.appendChild(card);
-            });
-            
-            document.getElementById('downloadBtn').style.display = images.length ? 'block' : 'none';
         }
 
-        // Modal Functions
         function openModal(url) {
             document.getElementById('modalImage').src = url;
             document.getElementById('imageModal').style.display = 'flex';
@@ -187,7 +323,6 @@
             document.getElementById('imageModal').style.display = 'none';
         }
 
-        // Helpers
         function showLoading() {
             document.getElementById('loading').style.display = 'flex';
         }
@@ -196,17 +331,9 @@
             document.getElementById('loading').style.display = 'none';
         }
 
-        function updateDownloadButton() {
-            document.getElementById('downloadBtn').innerText = 
-                `Download Selected (${selectedImages.size})`;
-        }
-
-        // Close modal on outside click
-        window.onclick = function(event) {
-            if (event.target === document.getElementById('imageModal')) {
-                closeModal();
-            }
-        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
     </script>
 </body>
 </html>
